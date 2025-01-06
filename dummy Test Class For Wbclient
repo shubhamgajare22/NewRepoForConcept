@@ -1,0 +1,485 @@
+
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class AuthorizationServerDaoImplTest {
+    private MockWebServer mockWebServer;
+
+    private AuthorizationServerDaoImpl authorizationServerDao;
+    @Mock
+    private Environment env;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        mockWebServer = new MockWebServer();
+        mockWebServer.start();
+
+        String baseUrl = mockWebServer.url("/").toString();
+        WebClient webClient = WebClient.builder()
+                .baseUrl(baseUrl)
+                .build();
+
+       authorizationServerDao = new AuthorizationServerDaoImpl(webClient, env);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        try {
+            mockWebServer.shutdown();
+        } catch (Exception e) {
+        }
+    }
+
+    @Test
+    void testGetAllAuthServerOfEnv_Success() {
+        String searchEnv = "devl";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+
+        String jsonResponse = "[{\"id\":\"authServerId1\"}, {\"id\":\"authServerId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        List<AuthorizationServerDomain> allAuthServerOfEnv = authorizationServerDao.getAllAuthServerOfEnv(searchEnv);
+
+        assertNotNull(allAuthServerOfEnv);
+        assertEquals(2, allAuthServerOfEnv.size());
+        assertEquals("authServerId1", allAuthServerOfEnv.get(0).getId());
+        assertEquals("authServerId2", allAuthServerOfEnv.get(1).getId());
+    }
+
+    @Test
+    void testGetAllAuthServerOfEmtyENV_Success() {
+        String searchEnv = "";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+
+        String jsonResponse = "[{\"id\":\"authServerId1\"}, {\"id\":\"authServerId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        List<AuthorizationServerDomain> allAuthServerOfEnv = authorizationServerDao.getAllAuthServerOfEnv(searchEnv);
+
+        assertNotNull(allAuthServerOfEnv);
+        assertEquals(2, allAuthServerOfEnv.size());
+        assertEquals("authServerId1", allAuthServerOfEnv.get(0).getId());
+        assertEquals("authServerId2", allAuthServerOfEnv.get(1).getId());
+    }
+
+    @Test
+    void testGetAllAuthServerOfEnv_ErrorResponse() {
+        String searchEnv = "devl";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        List<AuthorizationServerDomain> allAuthServerOfEnv = authorizationServerDao.getAllAuthServerOfEnv(searchEnv);
+
+        assertTrue(allAuthServerOfEnv.isEmpty());
+    }
+
+    @Test
+    void testGetAllPolicesOfAuthServer_Success() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+
+        String jsonResponse = "[{\"id\":\"policyId1\"}, {\"id\":\"policyId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        List<PolicyDomain> allPolicesOfAuthServer = authorizationServerDao.getAllPolicesOfAuthServer(searchEnv, authServerId);
+
+        assertNotNull(allPolicesOfAuthServer);
+        assertEquals(2, allPolicesOfAuthServer.size());
+        assertEquals("policyId1", allPolicesOfAuthServer.get(0).getId());
+        assertEquals("policyId2", allPolicesOfAuthServer.get(1).getId());
+    }
+
+    @Test
+    void testGetAllPolicesOfAuthServer_ErrorResponse() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        List<PolicyDomain> allPolicesOfAuthServer = authorizationServerDao.getAllPolicesOfAuthServer(searchEnv, authServerId);
+        assertTrue(allPolicesOfAuthServer.isEmpty());
+    }
+
+    @Test
+    void testGetAllRulesOfPolicy_Success() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String policyId = "policyId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+        String ruleApiUrlKey = "rule.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+        when(env.getProperty(ruleApiUrlKey)).thenReturn("/rules");
+
+        String jsonResponse = "[{\"id\":\"ruleId1\"}, {\"id\":\"ruleId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        List<RuleDomain> allRulesOfPolicy = authorizationServerDao.getAllRulesOfPolicy(searchEnv, authServerId, policyId);
+
+        assertNotNull(allRulesOfPolicy);
+        assertEquals(2, allRulesOfPolicy.size());
+        assertEquals("ruleId1", allRulesOfPolicy.get(0).getId());
+        assertEquals("ruleId2", allRulesOfPolicy.get(1).getId());
+    }
+
+    @Test
+    void testGetAllRulesOfPolicy_ErrorResponse() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String policyId = "policyId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+        String ruleApiUrlKey = "rule.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+        when(env.getProperty(ruleApiUrlKey)).thenReturn("/rules");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        List<RuleDomain> allRulesOfPolicy = authorizationServerDao.getAllRulesOfPolicy(searchEnv, authServerId, policyId);
+
+        assertTrue(allRulesOfPolicy.isEmpty());
+    }
+
+    @Test
+    void testGetAuthServerDetailsById_Success() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+
+        String jsonResponse = "{\"id\":\"authServerId1\"}";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        AuthorizationServerDomain authServerDetails = authorizationServerDao.getAuthServerDetailsById(authServerId, searchEnv);
+
+        assertNotNull(authServerDetails);
+        assertEquals("authServerId1", authServerDetails.getId());
+    }
+
+    @Test
+    void testGetAuthServerDetailsById_ErrorResponse() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        AuthorizationServerDomain authServerDetails = authorizationServerDao.getAuthServerDetailsById(authServerId, searchEnv);
+
+        assertNotNull(authServerDetails);
+        assertNull(authServerDetails.getId());
+    }
+
+    @Test
+    void testGetAuthServerScopesById_Success() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String authServerScpApiUrlKey = "auth.server.scopes.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(authServerScpApiUrlKey)).thenReturn("/scopes");
+
+        String jsonResponse = "[{\"id\":\"scopeId1\"}, {\"id\":\"scopeId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        List<ScopesDomain> authServerScopes = authorizationServerDao.getAuthServerScopesById(authServerId, searchEnv);
+
+        assertNotNull(authServerScopes);
+        assertEquals(2, authServerScopes.size());
+        assertEquals("scopeId1", authServerScopes.get(0).getId());
+        assertEquals("scopeId2", authServerScopes.get(1).getId());
+    }
+
+    @Test
+    void testGetAuthServerScopesById_ErrorResponse() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String authServerScpApiUrlKey = "auth.server.scopes.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(authServerScpApiUrlKey)).thenReturn("/scopes");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        List<ScopesDomain> authServerScopes = authorizationServerDao.getAuthServerScopesById(authServerId, searchEnv);
+
+        assertNotNull(authServerScopes);
+        assertTrue(authServerScopes.isEmpty());
+    }
+
+    @Test
+    void testGetAuthServerClaimsById_Success() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String authServerClmApiUrlKey = "auth.server.claims.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(authServerClmApiUrlKey)).thenReturn("/claims");
+
+        String jsonResponse = "[{\"id\":\"claimId1\"}, {\"id\":\"claimId2\"}]";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+        List<ClaimsDomain> authServerClaims = authorizationServerDao.getAuthServerClaimsById(authServerId, searchEnv);
+        assertNotNull(authServerClaims);
+    }
+
+    @Test
+    void testGetAuthServerClaimsById_ErrorResponse() {
+        String searchEnv = "devl";
+        String authServerId = "authServerId1";
+        String loginUrlKey = searchEnv + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String authServerClmApiUrlKey = "auth.server.claims.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(authServerClmApiUrlKey)).thenReturn("/claims");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        List<ClaimsDomain> authServerClaims = authorizationServerDao.getAuthServerClaimsById(authServerId, searchEnv);
+
+        assertTrue(authServerClaims.isEmpty());
+    }
+
+    @Test
+    void testCreateAuthServerPolicy_Success() {
+        String authServerID = "authServerId1";
+        String environment = "devl";
+        String loginUrlKey = environment + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+
+        String jsonResponse = "{\"id\":\"policyId1\"}";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        CreateAruthServerPolicyBean policyRequest = new CreateAruthServerPolicyBean();
+        CreateAruthServerPolicyBean response = authorizationServerDao.createAuthServerPolicy(authServerID, environment, policyRequest);
+
+        assertNotNull(response);
+        assertEquals("policyId1", response.getId());
+    }
+
+    @Test
+    void testCreateAuthServerPolicy_ErrorResponse() {
+        String authServerID = "authServerId";
+        String environment = "devl";
+        String loginUrlKey = environment + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        CreateAruthServerPolicyBean policyRequest = new CreateAruthServerPolicyBean();
+        CreateAruthServerPolicyBean response = authorizationServerDao.createAuthServerPolicy(authServerID, environment, policyRequest);
+        assertNotNull(response);
+    }
+
+    @Test
+    void testCreateAuthServerPolicyRule_Success() {
+        String authServerID = "authServerId1";
+        String environment = "devl";
+        String policyID = "policyId1";
+        String loginUrlKey = environment + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+        String ruleApiUrlKey = "rule.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+        when(env.getProperty(ruleApiUrlKey)).thenReturn("/rules");
+
+        String jsonResponse = "{\"id\":\"ruleId1\"}";
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody(jsonResponse)
+        );
+
+        CreateAruthServerPolicyRuleBean policyRuleRequest = new CreateAruthServerPolicyRuleBean();
+        CreateAruthServerPolicyRuleBean response = authorizationServerDao.createAuthServerPolicyRule(authServerID, environment, policyID, policyRuleRequest);
+
+        assertNotNull(response);
+        assertEquals("ruleId1", response.getId());
+    }
+
+    @Test
+    void testCreateAuthServerPolicyRule_ErrorResponse() {
+        String authServerID = "authServerId1";
+        String environment = "devl";
+        String policyID = "policyId1";
+        String loginUrlKey = environment + ".login.url";
+        String authServerApiUrlKey = "auth.server.api.url";
+        String policyApiUrlKey = "policy.api.url";
+        String ruleApiUrlKey = "rule.api.url";
+
+        when(env.getProperty(loginUrlKey)).thenReturn(mockWebServer.url("/").toString());
+        when(env.getProperty(authServerApiUrlKey)).thenReturn("api/v1/authorizationServers");
+        when(env.getProperty(policyApiUrlKey)).thenReturn("/policies");
+        when(env.getProperty(ruleApiUrlKey)).thenReturn("/rules");
+
+        mockWebServer.enqueue(
+                new MockResponse()
+                        .setResponseCode(500)
+                        .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                        .setBody("{\"error\":\"Internal Server Error\"}")
+        );
+
+        CreateAruthServerPolicyRuleBean policyRuleRequest = new CreateAruthServerPolicyRuleBean();
+        CreateAruthServerPolicyRuleBean response = authorizationServerDao.createAuthServerPolicyRule(authServerID, environment, policyID, policyRuleRequest);
+
+        assertNotNull(response);
+        assertNull(response.getId());
+    }
+}

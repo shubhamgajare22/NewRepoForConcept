@@ -1,0 +1,50 @@
+package com.stream.interviewPreparation.java8trickyQue;
+
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+public class java8TrickyQuestion {
+
+	public static void main(String[] args) {
+		// Question 1 : Create a map with available list of persons strictly using Java
+		// 8 stream or lambda
+//		Map<String, List<Person>>
+//		Key : hobby
+//		Value : List of persons having this hobby.
+
+		List<String> cricketAndHockey = Arrays.asList("cricket", "hockey");
+		List<String> footballAndcricket = Arrays.asList("football", "cricket");
+		List<String> hollyAndHockey = Arrays.asList("hollyball", "hockey");
+
+		List<Person> listOfpersonsWithHobbies = Arrays.asList(new Person("ABC", 20, cricketAndHockey),
+				new Person("xyz", 30, footballAndcricket), new Person("mno", 10, hollyAndHockey));
+
+		// approch 1>Flatten the list of persons and their hobbies.
+	              2> Group the persons by their hobbies.
+
+		Map<String, List<Person>> newHobbiesListWithPersons = listOfpersonsWithHobbies.stream()
+				.flatMap(persons -> persons.getHobbies().stream().map(hobbies -> new AbstractMap.SimpleEntry<>(hobbies, persons) ))
+				// .forEach(smEn -> System.out.println(smEn));
+				.collect(Collectors.groupingBy(Map.Entry::getKey,
+						Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+
+		// Question 2 : Create a map with map available as output of Question 1 using
+		// Java 8 strictly
+//		Map<String, Integer>
+//		Key : Hobby
+//		Value : Average age of persons having this hobby
+
+		Map<String, Double> avgOfpersonWithHobby = newHobbiesListWithPersons.entrySet().stream().collect(Collectors.toMap(
+
+				Map.Entry::getKey, entry -> entry.getValue().stream().collect(Collectors.averagingInt(Person::getAge))
+
+		));
+		
+		System.out.println(avgOfpersonWithHobby);
+
+	}
+
+}
